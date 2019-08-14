@@ -1,0 +1,16 @@
+{
+    "name": "OpenMageModuleFostering/Wisepricer_Syncer",
+    "type": "magento-module",
+    "license": "OSL",
+    "homepage": "",
+    "description": "WisePricer - Beat your competition",
+    "authors": [
+    {
+        "name": "Moshe",
+        "email": "moshe@wiser.com"
+    }
+],
+    "suggest": {
+        "magento-hackathon/magento-composer-installer": "*"
+    }
+}

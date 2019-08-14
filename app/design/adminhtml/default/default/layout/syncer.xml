@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<layout version="0.1.0"> 
+    <adminhtml_syncer_mapping>
+        <reference name="head">
+            <action method="addItem"><type>skin_js</type><name>wisepricer/prototype17.js</name></action>   
+            <action method="addItem"><type>skin_js</type><name>wisepricer/chosen.proto.js</name></action> 
+            <action method="addCss"><stylesheet>wisepricer/wisepricer.css</stylesheet></action>
+            <action method="addCss"><stylesheet>wisepricer/chosen.css</stylesheet></action>
+	    <action method="addItem"><type>skin_js</type><name>wisepricer/chosen.proto.js</name></action>            
+        </reference>
+        <reference name="content">
+            <block type="syncer/adminhtml_mapping" template="wisepricer/mapping.phtml" name="wisepricer.mapping" />
+        </reference>
+    </adminhtml_syncer_mapping> 
+</layout>

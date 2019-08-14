@@ -1,0 +1,271 @@
+<?php
+    $adminobj= new Mage_Adminhtml_Block_Template(); 
+    $formkey=$adminobj->getFormKey();
+    $licenseData=Mage::getModel('wisepricer_syncer/config')->load(1);
+?>
+    <form id="mapping_form" name="mapping_form" method="post" action="<?php echo $this->getUrl('*/*/savemapping')?>">
+        <input name="form_key" type="hidden" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
+        <input name="mapping_form[stock]" type="hidden" value="qty" />
+     <div class="top_block">
+        <div class="top_block_left">
+            <div class="inner-cont">
+                <a href="http://www.wisepricer.com" target="_blank"><img src="<?php echo $this->getSkinUrl('images/wisepricer/wp-logo.png'); ?>"/></a>
+            </div>
+         </div>
+        <div class="top_block_right">
+        <button class="wp-save-btn" onclick="return beforeSubmit()"></button>
+        </div>        
+      </div>
+      <div class="mid_block">
+        <div class="mid_block_left">
+          <div class="guidelines">
+            <div class="guidelines-block">
+              <p><?php echo $this->__('Enter your WisePricer license key you received from WisePricer. This will link this store with your WisePricer account.')?></p>
+            </div>
+            <div class="guidelines-block import-guidelines">
+              <p><?php echo $this->__('Choose which products to import to WisePricer.')?></p>
+            </div>
+            <div class="guidelines-block mapping-guidelines">
+              <h4><?php echo $this->__('Wisepricer mapping guidelines:')?></h4>
+              <ul>
+                <li id="rule1"><?php echo $this->__('If you have <span class="field">UPC</span> or <span class="field">ASIN</span> then fields <span class="field">BRAND</span>,<span class="field">MODEL</span>,<span class="field">MPN</span> are not required.')?></li>
+                <li id="rule2"><?php echo $this->__('If you don\'t have <span class="field">UPC</span> or <span class="field">ASIN</span>, then you should have at least one of the following combinations: <span class="field">BRAND+MODEL</span> or <span class="field">BRAND+MPN</span>')?></li>
+                <li id="rule3"><?php echo $this->__('You must have either <span class="field">COST</span> or <span class="field">MINPRICE</span> or, you can set fixed rule for <span class="field">MINPRICE</span>')?></li>
+                <li><?php echo $this->__('<span class="field">NAME</span>, <span class="field">SKU</span>, and <span class="field">PRICE</span> fields are required')?></li>
+                <li><?php echo $this->__('Other fields are not required, but having them will increase your ability to interact with them within WisePricer(e.g. setting advanced rules, better matching and more)')?></li>
+              </ul>
+            </div>            
+          </div>
+        </div>
+        <div class="mid_block_right">
+            <div class="values-block">
+                <div class="license-block">
+                    <div class="label-block"><label><?php echo $this->__('Enter your License key')?> <span class="required">*</span></label></div>
+                    <input type="text" value="<?php echo $licenseData->getLicensekey()?>" class="input-text required-entry" name="register_form[licensekey]" />
+                </div>        
+            </div>
+            <div class="values-block">
+                <div class="license-block import-settings">
+                  <div class="values-block-sub b10">
+                    <div class="label-block"><label><?php echo $this->__('Import:')?></label></div>
+                    <?php echo $this->renderWebsitesSelect($licenseData->getWebsite())?>
+                  </div>
+                  <div class="values-block-sub b10">
+                    <div class="label-block"><label><?php echo $this->__('Product types:')?></label></div>
+                    <?php echo $this->renderTypesSelect($licenseData->getProduct_type())?>
+                  </div>
+                  <div class="values-block-sub b10 check-block">
+                        <div class="label-block b0"><label><?php echo $this->__('Do not import out of stock items')?></label></div>
+                        <input  type="checkbox" name="register_form[import_outofstock]" <?php echo $this->getImportOutStockSet();?>/>
+                  </div>
+                  <div class="values-block-sub check-block">
+                        <div class="label-block b0"><label><?php echo $this->__('Reprice Configurable')?></label></div>
+                        <input type="checkbox" name="register_form[reprice_configurable]" <?php if($licenseData->getReprice_configurable()){ echo 'checked';}?>/>
+                        <p class="wptip"><?php echo $this->__('The Configurable product will be assigned to the price of his cheapest child')?></p>
+                  </div>
+                </div>        
+            </div>
+            <p><?php echo $this->__('Please make sure the following fields are assigned correctly:');?></p>
+            <div class="values-block">
+               <table cellspacing="0" class="form-list">
+                <tr class="t-header">
+                    <td><strong><?php echo $this->__('Required Fields')?></strong></td><td><strong><?php echo $this->__('Detected field')?></strong></td>
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('Title')?><span class="required">*</span></span></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[title]','title','name','required-entry chzn-select')?></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('SKU')?><span class="required">*</span></span></td>
+                    <td class="input-ele"><?php echo $this->renderSkuIdSelect('mapping_form[sku]','sku','sku','required-entry chzn-select')?></td>
+                    <td></td>                   
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('UPC')?></span></td>
+                    <td class="input-ele">
+                        <?php echo $this->renderAttributesSelect('mapping_form[upc]','upc','upc','chzn-select')?>
+                       
+                    </td>
+                    <td class="desc"><p><span><?php echo $this->__('Universal Product Code')?></span></p></td>                   
+                </tr> 
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('Brand')?></span></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[brand]','brand','brand','chzn-select')?></td>
+                    <td></td>                   
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('Model')?></span></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[model]','model','model','chzn-select')?></td>
+                    <td></td>                   
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('MPN')?></span></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[mpn]','mpn','mpn','chzn-select')?></td>
+                    <td></td>                   
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('ASIN')?></span></td>
+                    <td class="input-ele">
+                        <?php echo $this->renderAttributesSelect('mapping_form[asin]','asin','asin','chzn-select')?>
+                         
+                    </td>
+                    <td class="desc"><p><span><?php echo $this->__('Amazon Standard Identification Number')?></span></p></td>                    
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('Price')?> <span class="required">*</span></span></td>
+                    <td class="input-ele"><?php echo $this->renderPriceAttributesSelect('mapping_form[price]','price','price','required-entry chzn-select')?></td>
+                    <td></td>                   
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('Cost')?></span></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[cost]','cost','0','chzn-select')?></td>
+                    <td></td>                   
+                </tr>
+                <tr>
+                    <td class="label firstcol"><span><?php echo $this->__('Product image')?></span></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[productimage]','productimage','image','chzn-select')?></td>
+                    <td></td>                    
+                </tr>
+                <tr class="special-opt-cont">
+                    <td colspan="2">
+                        <div class="ship-price-cont minprice">
+                            <div class="ship-price-cont-top">
+                                <div class="label"><?php echo $this->__('MinPrice')?></div>
+                                <div class="value"><?php echo $this->renderAttributesSelect('mapping_form[minprice]','minprice','cost','chzn-select')?></div>
+                            </div>
+                            <div class="ship-price-cont-mid"><span><?php echo $this->__('-Or-')?></span></div>
+                            <div class="ship-price-cont-bott">
+                               <div class="label"><?php echo $this->__('Set a minimum price:')?></div>
+                            </div>
+                            <div class="ship-price-cont-bott desc">
+                              <p><span><?php echo $this->__('this will manually override the choosen attribute.')?></span></p>  
+                            </div>
+                            <div class="ship-price-cont-bott">
+                               <div class="label">
+                                  <input id="minprice_man" type="text" name="mapping_form[minprice_man]"  value="<?php echo $this->getFixedMinPrice()?>"/> 
+                                  <?php echo $this->renderMinPriceRuleSelects();?>
+                               </div>
+                            </div>                            
+                        </div>
+                    </td>
+                    <td class="desc"><p><span><?php echo $this->__('Wisepricer will never price below the minimum price you set.')?></span></p></td>                   
+                </tr>                
+                <tr>
+                    <td colspan="2">
+                        <div class="ship-price-cont">
+                            <div class="ship-price-cont-top">
+                                <div class="label"><?php echo $this->__('Shipping price')?></div>
+                                <div class="value"><?php echo $this->renderAttributesSelect('mapping_form[shipping]','shipping','0','chzn-select')?></div>
+                            </div>
+                            <div class="ship-price-cont-mid"><span><?php echo $this->__('-Or-')?></span></div>
+                            <div class="ship-price-cont-bott">
+                               <div class="label"><?php echo $this->__('Enter fixed shipping price')?></div>
+                               <div class="value"><input type="text" name="mapping_form[shipping_man]"  value="<?php echo $this->getShippingFixedRate()?>"/></div>
+                            </div>
+                            <div class="ship-price-cont-bott desc">
+                              <p><span><?php echo $this->__('this will manually override the choosen attribute.')?></span></p>  
+                            </div>
+                        </div>
+                     </td>
+                     <td></td>
+                </tr>
+            </table>
+          </div>
+        </div>       
+      </div>
+      <div class="bott_block">
+        <div class="bott_block_left"></div>
+        <div class="bott_block_right">
+          <button class="wp-save-btn" onclick="return beforeSubmit()"></button>
+        </div> 
+      </div> 
+    </form>
+<style>
+  #wsp-mapping td{
+    line-height: 20px;
+    overflow: hidden;
+    padding: 0 0 20px;
+    vertical-align: top;
+    width: 230px;
+  }
+  #wsp-mapping td.second-val{
+      padding-left: 20px
+  }
+  #wsp-mapping{
+      padding-top: 20px
+  }
+</style>
+<script type="text/javascript">
+    
+  document.observe('dom:loaded', function(evt) {
+    var select, selects, _i, _len, _results;
+    if (Prototype.Browser.IE && (Prototype.BrowserFeatures['Version'] === 6 || Prototype.BrowserFeatures['Version'] === 7)) {
+      return;
+    }
+    selects = $$(".chzn-select");
+    _results = [];
+    for (_i = 0, _len = selects.length; _i < _len; _i++) {
+      select = selects[_i];
+      _results.push(new Chosen(select,{disable_search_threshold: 50}));
+    }
+    deselects = $$(".chzn-select-deselect");
+    for (_i = 0, _len = deselects.length; _i < _len; _i++) {
+      select = deselects[_i];
+      _results.push(new Chosen(select,{allow_single_deselect:true}));
+    }
+    return _results;
+  });
+  
+    var editForm = new varienForm('mapping_form');
+    
+    function beforeSubmit(){ 
+      $('rule2').setStyle('border:none'); 
+      $('rule1').setStyle('border:none');
+      $('rule3').setStyle('border:none');
+      var upc=$('upc').value;
+      var brand=$('brand').value;
+      var model=$('model').value;
+      var asin=$('asin').value;
+      var mpn=$('mpn').value;
+      var minprice=$('minprice').value;
+      var cost=$('cost').value;
+      var minprice_man=$('minprice_man').value;
+      
+      var isValid=false;
+      var failedRule=0;
+      if(upc!=''||asin!=''){
+
+            if(minprice!=''||(cost!=''&&minprice_man!='')){
+                editForm.submit(); 
+                return;
+            }else{
+               failedRule=3;   
+            }
+      }
+      
+      if((brand!=''&&model!='')||(brand!=''&&mpn!='')){
+
+            if(minprice!=''||(cost!=''&&minprice_man!='')){
+                editForm.submit(); 
+                return;
+            }else{
+               failedRule=3;   
+            }
+      }
+      
+    if(failedRule==3){
+        $('rule3').setStyle('border:red solid 1px');
+        
+    }else{
+       $('rule2').setStyle('border:red solid 1px'); 
+       $('rule1').setStyle('border:red solid 1px');
+    }
+    
+      alert(Translator.translate('Please follow instructions in your mapping listed on the left.'));    
+      window.location.hash='rule1';
+
+      return false;
+      
+    }
+</script>

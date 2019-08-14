@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+
+
+    <modules>
+
+
+        <Wisepricer_Syncer>
+
+
+            <active>true</active>
+
+
+            <codePool>local</codePool>
+
+
+        </Wisepricer_Syncer>
+
+
+    </modules>
+
+
+</config>
