@@ -29,23 +29,22 @@ class Wisepricer_Syncer_Model_Reprice extends Mage_Core_Model_Abstract{
         return $connection->fetchOne($sql, array($entity_type_code));
     }
 
-    private function _getIdFromSku($sku){
+    public function getIdFromSku($sku){
         $connection = $this->_getConnection('core_read');
         $sql        = "SELECT entity_id FROM " . $this->_getTableName('catalog_product_entity') . " WHERE sku = ?";
         return $connection->fetchOne($sql, array($sku));
 
     }
 
-    private function _getConfigurableIds($productId){
+    private function _getConfigurableIds($productId, $newPrice){
 
         $parentIds = Mage::getResourceSingleton('catalog/product_type_configurable')->getParentIdsByChild($productId);
 
         foreach($parentIds as $parId) {
 
-            if(!in_array($parId,$this->_parrentIds)){
-                $this->_parrentIds[]=$parId;
+            if(!array_key_exists($parId,$this->_parrentIds) || $this->_parrentIds[$parId] > $newPrice){
+                $this->_parrentIds[$parId]= $newPrice;
             }
-
         }
     }
 
@@ -79,97 +78,103 @@ class Wisepricer_Syncer_Model_Reprice extends Mage_Core_Model_Abstract{
         }
     }
 
-    public function updatePricesBySku($prodArr,$price_field){
-        $connection     = $this->_getConnection('core_write');
-
-        if(!is_array($prodArr)){
-            $sku            = $prodArr->sku;
-            $newPrice       = $prodArr->price;
-        }else{
-            $sku            = $prodArr['sku'];
-            $newPrice       = $prodArr['price'];
-        }
-      try{
-        $productId      = $this->_getIdFromSku($sku);
-        $attributeId    = $this->_getAttributeId($price_field);
-        $spAttributeId  = $this->_getAttributeId('special_price');
-        $specialPrice   = $this->_getSpecialPrice($productId,$spAttributeId);
-
-        if($specialPrice){
-          $attributeId= $spAttributeId;
-        }
-
-        $sql = "UPDATE " . $this->_getTableName('catalog_product_entity_decimal') . " cped
-                    SET  cped.value = ?
-                WHERE  cped.attribute_id = ?
-                AND cped.entity_id = ?";
-        $connection->query($sql, array($newPrice, $attributeId, $productId));
-        $this->_getConfigurableIds($productId);
-
-      }catch(Exception $e){
-          Mage::log($e->getMessage(),null,'wplog.log');
-          echo $e->getMessage();
-      }
-    }
-
-    public function updatePricesById($prodArr,$price_field){
+    public function updatePricesById($prodArr,$entityTypeId,$store_id,$mappings){
+    
         $connection     = $this->_getConnection('core_write');
 
         if(!is_array($prodArr)){
             $productId      = $prodArr->sku;
-            $newPrice       = $prodArr->price;
         }else{
             $productId      = $prodArr['sku'];
-            $newPrice       = $prodArr['price'];
         }
-        try{
-             $attributeId    = $this->_getAttributeId($price_field);
 
-             $spAttributeId  = $this->_getAttributeId('special_price');
-             $specialPrice   = $this->_getSpecialPrice($productId,$spAttributeId);
+        $sql='';
 
-             if($specialPrice){
-                $attributeId= $spAttributeId;
-             }
+        foreach($prodArr as $pricesName=>$priceValue){
 
-              $sql = "UPDATE " . $this->_getTableName('catalog_product_entity_decimal') . " cped
-                    SET  cped.value = ?
-                WHERE  cped.attribute_id = ?
-                AND cped.entity_id = ?";
-             $connection->query($sql, array($newPrice, $attributeId, $productId));
-             $this->_getConfigurableIds($productId);
+              try{
+                    if($pricesName=='sku'){
+                        continue;
+                    }
 
-        }catch(Exception $e){
-            Mage::log($e->getMessage(),null,'wplog.log');
-            echo $e->getMessage();
+                    $mPriceName=isset($mappings[$pricesName])? $mappings[$pricesName]['magento_field'] : '';
+
+                    $attributeId    = $this->_getAttributeId($mPriceName);
+
+                    if(!$attributeId){
+
+                        Mage::log('Product '.$productId.', could not find field '.$pricesName,null,'wplog.log');
+                        continue;
+                    }
+
+                    if($priceValue == 0 || $pricesName==''){
+
+                        if($mPriceName=='price'){
+                            throw new Exception("Price [$priceValue] is invalid Product Id: $productId");
+                        }else{
+                            $sql="DELETE FROM " . $this->_getTableName('catalog_product_entity_decimal') . " WHERE entity_type_id=? AND attribute_id=? AND store_id=? AND entity_id=?";
+
+                            $res=$connection->query($sql, array($entityTypeId, $attributeId,$store_id,$productId));
+                        }
+
+                    }else{
+
+                        $sql="SELECT value_id FROM ".$this->_getTableName('catalog_product_entity_decimal')
+                            ." WHERE attribute_id=? AND entity_id=? AND store_id=?";
+
+                        $res=$connection->fetchOne($sql, array($attributeId,$productId,$store_id));
+
+                        if(!is_numeric($res)){
+                            $sql="INSERT INTO " . $this->_getTableName('catalog_product_entity_decimal') . "
+                        (entity_type_id,attribute_id,store_id,entity_id,value)
+                        VALUES (?,?,?,?,?)";
+
+                            $res=$connection->query($sql, array($entityTypeId, $attributeId,$store_id,$productId,$priceValue));
+
+                        }else{
+                            $sql = "UPDATE " . $this->_getTableName('catalog_product_entity_decimal') . " cped
+                            SET  cped.value = {$priceValue}
+                        WHERE  cped.attribute_id = {$attributeId}
+                        AND cped.entity_id = {$productId}";
+                            //if($attributeId=='76') {echo $sql; die;}
+                            $res=$connection->query($sql);
+                        }
+                    }
+
+
+
+              }catch(Exception $e){
+                Mage::log($e->getMessage(),null,'wplog.log');
+
+                // echo $sql;
+                // echo 'Line '.__LINE__.' '.$e->getMessage();
+              }
+
         }
+            
     }
 
     public function getParrentIds(){
         return $this->_parrentIds;
     }
 
-    public function repriceConfigurable($productId){
-       $product=Mage::getModel('catalog/product')->load($productId);
-       $childProducts = Mage::getModel('catalog/product_type_configurable')->getUsedProducts(null, $product);
-       $minPrice=0;
+    private function getProductPrice($product){
+        $calcPriceRule = Mage::getModel('catalogrule/rule')->calcProductPriceRule($product,$product->getPrice());
+        if(isset($calcPriceRule) && $calcPriceRule > 0){
+            return $calcPriceRule;
+        }
 
-       foreach($childProducts as $child){
-         $childPrice=$child->getFinalPrice();
+        $specialPrice = $product->getSpecialPrice();
+        if(isset($specialPrice) && $specialPrice > 0){
+            return $specialPrice;
+        }
 
-         if($minPrice==0){
-             $minPrice=$childPrice;
-         }
+        $finalPrice = $product->getFinalPrice();
+        if(isset($finalPrice) && $finalPrice > 0){
+            return $finalPrice;
+        }
 
-         if($childPrice<$minPrice){
-            $minPrice=$childPrice;
-         }
-       }
-       $prodArr          =array();
-       $prodArr['sku']   =$productId;
-       $prodArr['price'] =$minPrice;
-       $this->updatePricesById($prodArr);
-       return $minPrice;
+        return $product->getPrice();
     }
 }
 ?>

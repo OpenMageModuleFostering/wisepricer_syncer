@@ -3,11 +3,11 @@
     "type": "magento-module",
     "license": "OSL",
     "homepage": "",
-    "description": "WisePricer - Beat your competition",
+    "description": "WisePricer- Beat your competition",
     "authors": [
     {
         "name": "Moshe",
-        "email": "moshe@wiser.com"
+        "email": "moshe@wisepricer.com"
     }
 ],
     "suggest": {

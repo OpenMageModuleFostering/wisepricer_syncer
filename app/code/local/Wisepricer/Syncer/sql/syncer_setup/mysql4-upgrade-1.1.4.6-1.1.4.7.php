@@ -8,7 +8,7 @@ $installer->addAttribute('catalog_product', 'ignore_wisepricer', array(
     'type'              => 'int',
     'backend'           => '',
     'frontend'          => '',
-    'label'             => 'Ignore WisePricer',
+    'label'             => 'Ignore Wiser',
     'input'             => 'select',
     'class'             => '',
     'source'            => 'eav/entity_attribute_source_boolean',

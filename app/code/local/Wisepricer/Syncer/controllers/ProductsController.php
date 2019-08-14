@@ -11,10 +11,12 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
     private $productOrigData=array();
 
-    public function sendAction(){
+    public function sendAction(){   
         // Mage::log('start sending',null,'wplog.log');
         set_time_limit (1800);
+        
         $licenseData  =Mage::getModel('wisepricer_syncer/config')->load(1);
+        
         if(!$licenseData->getData()||$licenseData->getIs_confirmed()==0){
 
             $returnArr=array(
@@ -28,7 +30,7 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
         $post         = $this->getRequest()->getParams();
 
-        $magentoSessionId=Mage::getModel('core/cookie')->get('wpsession');
+        $magentoSessionId=Mage::getModel('core/cookie')->get('wpsession');        
 
         if((!$magentoSessionId)||($magentoSessionId!=$post['sesssionid'])){
 
@@ -43,6 +45,13 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
 
         $startInd     = $post['start'];
+
+        $fromId=0;
+
+        if(isset($post['from_id'])){
+            $fromId=$post['from_id'];
+        }
+
         if(!$startInd){
             $startInd=0;
         }
@@ -52,11 +61,17 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
             $count=200;
         }
 
-        $pageNum=($startInd/$count)+1;
-
+        $store_id=isset($post['store_id']) ?  $post['store_id'] : 1;
 
         $fieldsEncoded= $post['params'];
+        
         $fields       =json_decode(urldecode ($fieldsEncoded));
+        if(empty($fields)){    //params=["all"]
+            Mage::log(print_r('post[params]= '.$post['params'],true),null,'wplog.log');
+            Mage::log(print_r('fields= '.$fields,true),null,'wplog.log');
+            // slashes prevents from json decoding on some systems
+            $fields=json_decode(urldecode (stripslashes($fieldsEncoded)));
+        }
 
         $mappings      =Mage::getModel('wisepricer_syncer/mapping')->getCollection()->getData();
 
@@ -74,8 +89,11 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
         }
         $collection->addFieldToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
-        $collection->addAttributeToFilter('type_id', array('eq' => 'simple'));
 
+        if(!empty($licenseData["product_type"]) && $licenseData["product_type"] != "all"){
+            $collection->addAttributeToFilter('type_id', array('eq' => $licenseData["product_type"]));
+        }
+        
         try{
 
             $collection->addAttributeToFilter(
@@ -92,16 +110,31 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
         }
 
-
-        if($licenseData->getWebsite()!=0){
-            $collection->addStoreFilter($licenseData->getWebsite());
+        if($fromId>0){
+            $collection->addAttributeToFilter('entity_id', array(
+                'from' => $fromId
+            ));
         }
 
-        if($licenseData->getImport_outofstock()){
+        if($licenseData->getWebsite()!=770){  
+            $collection->addStoreFilter($licenseData->getWebsite());
+            //if user set from config to send only products from one store
+            //he can send it only from there
+            $store_id=$licenseData->getWebsite();
+        }
+         
+        if($licenseData->getImport_outofstock()==0){     
             Mage::getSingleton('cataloginventory/stock')->addInStockFilterToCollection($collection);
         }
-
-        $collection->setPage($pageNum, $count)->load();
+        
+        /*echo $collection->count();
+        echo '<br/>';
+        echo $startInd;
+        echo '<br/>';
+        echo $count; die; */
+         $collection->getSelect()->limit($count,$startInd);
+         $collection->load();
+        //$collection->setPage($pageNum, $count)->load();
         // echo '<pre>'.print_r($collection->getData(),true).'</pre>'; die;
         //echo $collection->getSelect();die;
 
@@ -112,7 +145,9 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
         foreach ($collection as $product) {
 
             $productCollData=$product->getData();
-            $productModel=Mage::getModel('catalog/product')->load($productCollData['entity_id']);
+            $productModel=Mage::getModel('catalog/product')
+            ->setStoreId($store_id)
+            ->load($productCollData['entity_id']);
 
             $this->productOrigData=$productModel->getData();
             $productData=array();
@@ -188,6 +223,8 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
             $productData['producturl']=Mage::helper('catalog/product')->getProductUrl($productCollData['entity_id']);
 
+            $productData['product_id']=$productCollData['entity_id'];
+
             $productsOutput[]=$productData;
         }
 
@@ -207,10 +244,14 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
             $field['extra']='-1:a';
         }
         $ruleArr= explode(':',$field['extra']);
+        $minPrice = 0;
 
         if($ruleArr[1]=='a'){
             $costField=$this->_getMagentoFieldByWsField('cost');
             if($costField){
+                if(!isset($this->productOrigData[$costField])){
+                    return 0;
+                }
                 $cost=$this->productOrigData[$costField];
                 if($ruleArr[0]=='-1'){
                     $minPrice=($cost*$field['magento_field'])/100+$cost;
@@ -220,11 +261,16 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
             }
         }else{
             $priceField=$this->_getMagentoFieldByWsField('price');
-            $price=$this->productOrigData[$priceField];
-            if($ruleArr[0]=='-1'){
-                $minPrice=$price-($price*$field['magento_field'])/100;
-            }else{
-                $minPrice=$price-$field['magento_field'];
+            if($priceField){
+                if(!isset($this->productOrigData[$priceField])){
+                    return 0;
+                }
+                $price=$this->productOrigData[$priceField];
+                if($ruleArr[0]=='-1'){
+                    $minPrice=$price-($price*$field['magento_field'])/100;
+                }else{
+                    $minPrice=$price-$field['magento_field'];
+                }
             }
         }
         return $minPrice;
@@ -260,7 +306,7 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
         $sessionId=$this->_randString(8);
 
-        Mage::getModel('core/cookie')->set('wpsession',$sessionId , true);
+        Mage::getModel('core/cookie')->set('wpsession',$sessionId , 86400);
 
         $returnArr=array(
             'status'=>'success',
@@ -295,6 +341,7 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
 
         echo json_encode($returnArr);
     }
+
     public function getpublicAction(){
 
         $publickey=$this->_getpublickey();
@@ -308,11 +355,14 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
         echo json_encode($returnArr);
     }
 
-
     public function repriceAction(){
+    
         Mage::log(print_r('Entered reprice action',true),null,'wplog.log');
+        
         set_time_limit (1800);
+        
         $licenseData  =Mage::getModel('wisepricer_syncer/config')->load(1);
+        
         if(!$licenseData->getData()||$licenseData->getIs_confirmed()==0){
 
             $returnArr=array(
@@ -338,77 +388,99 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
             echo json_encode($returnArr);
             die;
         }
+        
+        $store_id=isset($post['store_id']) ?  $post['store_id'] : 0;
 
         $productsEncoded= $post['products'];
+        
         $products   =json_decode(urldecode ($productsEncoded));
+           //echo '<pre>'.print_r($products,true); die;
         $responseArr=array();
+        
         $sucessCounter=0;
+        
         $failedCounter=0;
+        
         Mage::log(print_r('repricing '.count($products),true),null,'wplog.log');
+
+        $mappings      =Mage::getModel('wisepricer_syncer/mapping')->getCollection()->getData();
+
+        $newMappings=array();
+
+        foreach ($mappings as $mp) {
+            $newMappings[$mp['wsp_field']]=$mp;
+        }
+
+
         $repriceModel=Mage::getModel('wisepricer_syncer/reprice');
+        
         $id_type= $this->_getMagentoFieldByWsField('sku');
-        $price_field= $this->_getMagentoFieldByWsField('price');
+        
+        $price_field= $this->_getMagentoFieldByWsField('price');     //
+        
+        $setup = new Mage_Eav_Model_Entity_Setup('core_setup');
 
-        if(strtolower($id_type)=='sku'){
+        $entityTypeId     = $setup->getEntityTypeId('catalog_product'); 
+        
+        foreach ($products as $prodArr) {
+          
+          $productId=0;
+          
+          $sku= $prodArr->sku;
+          
+          if(strtolower($id_type)=='sku'){
+             
+             if (!$repriceModel->checkIfSkuExists($prodArr->sku)) {
+             
+                 $responseArr[]=array('sku'=>$sku,'error_code'=>'333','error_details'=>'SKU could not be loaded');
+                 
+                 $failedCounter++;
+                 
+                 continue;
+             }
+             
+             $productId=$repriceModel->getIdFromSku($prodArr->sku);
+             //we change the sku to id because all reprices will be made by id only
+             $prodArr->sku= $productId;
+             
+          }else{
+          
+            if(!$repriceModel->checkIfIdExists($prodArr->sku)){
+                    
+                    $responseArr[]=array('sku'=>$sku,'error_code'=>'333','error_details'=>'ID could not be loaded');
+                    
+                    $failedCounter++;
 
-            foreach ($products as $prodArr) {
+                    continue;
+            }
 
-                if ($repriceModel->checkIfSkuExists($prodArr->sku)) {
-                    try {
+          }
+          
+                   try {
 
-                        $repriceModel->updatePricesBySku($prodArr,$price_field);
-                        $responseArr[]=array('sku'=>$prodArr->sku,'price'=>$prodArr->price,'error_code'=>'0');
+                        $repriceModel->updatePricesById($prodArr,$entityTypeId,$store_id,$newMappings);
+                        $responseArr[]=array('sku'=>$sku,'price'=>$prodArr,'error_code'=>'0');
                         $sucessCounter++;
 
                     } catch (Exception $exc) {
-                        $responseArr[]=array('sku'=>$prodArr->sku,'error_code'=>'444','error_details'=>$exc->getMessage());
+                        $responseArr[]=array('sku'=>$sku,'error_code'=>'444','error_details'=>$exc->getMessage());
                         $failedCounter++;
                     }
-                }else{
-                    $responseArr[]=array('sku'=>$prodArr->sku,'error_code'=>'333','error_details'=>'SKU could not be loaded');
-                    $failedCounter++;
+        
+        } 
 
-                }
-
-            }
-
-        }elseif(strtolower($id_type)=='entity_id'){
-
-            foreach ($products as $prodArr) {
-
-                if ($repriceModel->checkIfIdExists($prodArr->sku)) {
-                    try {
-
-                        $repriceModel->updatePricesById($prodArr,$price_field);
-                        $responseArr[]=array('sku'=>$prodArr->sku,'price'=>$prodArr->price,'error_code'=>'0');
-                        $sucessCounter++;
-
-                    } catch (Exception $exc) {
-                        $responseArr[]=array('sku'=>$prodArr->sku,'error_code'=>'444','error_details'=>$exc->getMessage());
-                        $failedCounter++;
-                    }
-                }else{
-                    $responseArr[]=array('sku'=>$prodArr->sku,'error_code'=>'333','error_details'=>'ID could not be loaded');
-                    $failedCounter++;
-
-                }
-
-            }
-
-        }
-
-        $parrentsIds=$repriceModel->getParrentIds();
-        foreach($parrentsIds as $parId){
-            try{
-                $minPrice=$repriceModel->repriceConfigurable($parId);
-                $responseArr[]=array('sku'=>$parId,'price'=>$minPrice,'error_code'=>'0');
-                $sucessCounter++;
-            }catch (Exception $exc) {
-                $responseArr[]=array('sku'=>$parId,'error_code'=>'444','error_details'=>$exc->getMessage());
-                $failedCounter++;
-            }
-
-        }
+//        $parrentsIds=$repriceModel->getParrentIds();
+//        foreach($parrentsIds as $parId => $price){
+//            try{
+//                $minPrice=$repriceModel->repriceConfigurable($parId, $price, $price_field);
+//                $responseArr[]=array('sku'=>$parId,'price'=>$minPrice,'error_code'=>'0');
+//                $sucessCounter++;
+//            }catch (Exception $exc) {
+//                $responseArr[]=array('sku'=>$parId,'error_code'=>'444','error_details'=>$exc->getMessage());
+//                $failedCounter++;
+//            }
+//
+//        }
 
 
         Mage::log(print_r('finished repricing',true),null,'wplog.log');
@@ -431,6 +503,8 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
     }
 
     public function reindexAction(){
+
+        set_time_limit (1800);
 
         Mage::log(print_r('Entered reindex action',true),null,'wplog.log');
 
@@ -461,20 +535,39 @@ class Wisepricer_Syncer_ProductsController extends Wisepricer_Syncer_BaseControl
             die;
         }
         Mage::getSingleton('index/indexer')->getProcessByCode('catalog_product_price')->reindexAll();
+
+        $returnArr=array(
+            'status'=>'success',
+            'error_code'=>'0'
+        );
+        echo json_encode($returnArr);
     }
 
     public function generatejasonAction(){
-        $result['products']=array(
-            array(
-                'sku'=>'zol_r_sm',
-                'price'=>'303.3'
-            ),
-            array(
-                'sku'=>'4fasd5f5',
-                'price'=>'770.0'
-            )
-        );
-        echo json_encode($result['products']);
+        echo '[{"sku":"128905","price":"529.99","special_price":"500","amazon_price":"560","ebay_price":"550"}]';
+        die;
+    }
+
+    public function getstoresAction(){
+
+        $post         = $this->getRequest()->getParams();
+
+        $magentoSessionId=Mage::getModel('core/cookie')->get('wpsession');
+
+        if((!$magentoSessionId)||($magentoSessionId!=$post['sesssionid'])){
+
+            $returnArr=array(
+                'status'=>'failure',
+                'error_code'=>'771',
+                'error_details'=>'Unauthorized access.'
+            );
+            echo json_encode($returnArr);
+            die;
+        }
+
+        $helper=Mage::helper('syncer');
+
+        echo $helper->getMultiStoreDataJson();
         die;
     }
 

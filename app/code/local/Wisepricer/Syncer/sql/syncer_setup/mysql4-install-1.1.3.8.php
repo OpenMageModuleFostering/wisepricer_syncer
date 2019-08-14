@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS {$this->getTable('wisepricer_syncer_config')} (
 
   `licensekey` varchar(255) character set utf8 NOT NULL,
 
-  `is_confirmed` smallint(5) unsigned NOT NULL default '0',
+  `is_confirmed` TINYINT(1) unsigned NOT NULL default '0',
 
   `publickey` text character set utf8 NOT NULL,
 
@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS {$this->getTable('wisepricer_syncer_config')} (
 
   `product_type` varchar(255) CHARACTER SET utf8 NOT NULL DEFAULT 'simple',
 
-  `reprice_configurable` int(1) NOT NULL DEFAULT '1',
+  `reprice_configurable` TINYINT(1) NOT NULL DEFAULT '1',
+
+  `import_outofstock` TINYINT(1) NOT NULL DEFAULT '1',
 
    PRIMARY KEY  (`licensekey_id`)
 

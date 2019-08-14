@@ -7,6 +7,7 @@ class Wisepricer_Syncer_Adminhtml_SyncerController extends Mage_Adminhtml_Contro
 {
     public function registrateAction()
     {
+    set_time_limit (1800);
         $model   = Mage::getModel('wisepricer_syncer/config');
         $lisenceData=$model->load(1);
         if(count($lisenceData->getData())>0){
@@ -20,8 +21,10 @@ class Wisepricer_Syncer_Adminhtml_SyncerController extends Mage_Adminhtml_Contro
         $this->loadLayout()->_setActiveMenu('wisepricer');
         $this->renderLayout();
     }
+    
     public function mappingAction()
     {
+        set_time_limit (1800);
         $model   = Mage::getModel('wisepricer_syncer/config');
         $lisenceData=$model->load(1);
         if(count($lisenceData->getData())>0){
@@ -35,13 +38,14 @@ class Wisepricer_Syncer_Adminhtml_SyncerController extends Mage_Adminhtml_Contro
         $this->loadLayout()->_setActiveMenu('wisepricer');
         $this->renderLayout();
     }
+    
     public function _savekey()
     {
         $post                    = $this->getRequest()->getPost('register_form');
         $lisensekey              = $post['licensekey'];
         $website                 = $post['website'];
-        $type                    = $post['product_type'];
-
+        $type                    = $post['product_type']; 
+        
         if(isset($post['reprice_configurable'])){
             $reprConf   = $post['reprice_configurable'];
             if(!$reprConf){
@@ -52,40 +56,40 @@ class Wisepricer_Syncer_Adminhtml_SyncerController extends Mage_Adminhtml_Contro
         }else{
             $reprConf=0;
         }
-
-        if(isset($post['import_outofstock'])){
+                               
+        if(isset($post['import_outofstock'])){       
             $import_outofstock   = $post['import_outofstock'];
             if(!$import_outofstock){
-                $import_outofstock=0;
-            }else{
                 $import_outofstock=1;
+            }else{
+                $import_outofstock=0;
             }
         }else{
-            $import_outofstock=0;
+            $import_outofstock=1;
         }
-
+        
         try {
             if (empty($lisensekey)) {
                 Mage::throwException($this->__('Invalid form data. The license key is missing!'));
             }
+            
             $model   = Mage::getModel('wisepricer_syncer/config');
+            
             $lisenceData=$model->load(1);
-            if(count($lisenceData->getData())>0){
-                $lisenceData->setLicensekey($lisensekey);
-                $lisenceData->setWebsite($website);
-                $lisenceData->setProduct_type($type);
-                $lisenceData->setReprice_configurable($reprConf);
-                $lisenceData->setImport_outofstock($import_outofstock);
-                $lisenceData->save();
-            }else{
-                $model->setLicensekey($lisensekey)->save();
-            }
+            
+            $lisenceData->setLicensekey($lisensekey);
+            $lisenceData->setWebsite($website);
+            $lisenceData->setProduct_type($type);
+            $lisenceData->setReprice_configurable($reprConf);
+            $lisenceData->setImport_outofstock($import_outofstock);
+            $lisenceData->save();
 
         }
         catch (Exception $e) {
             Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
         }
     }
+    
     protected function _validateMapping($post){
 
         $isValid=false;
@@ -107,8 +111,13 @@ class Wisepricer_Syncer_Adminhtml_SyncerController extends Mage_Adminhtml_Contro
 
         return $isValid;
     }
+    
     public function savemappingAction(){
+        
+        set_time_limit (1800);
+        
         $post= $this->getRequest()->getPost('mapping_form');
+        
         $this->_savekey();
 
         $isValid=$this->_validateMapping($post);

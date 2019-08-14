@@ -117,9 +117,24 @@
                     <td class="input-ele"><?php echo $this->renderPriceAttributesSelect('mapping_form[price]','price','price','required-entry chzn-select')?></td>
                     <td></td>                   
                 </tr>
+                   <tr>
+                       <td class="label firstcol"><span><?php echo $this->__('Special Price')?> <span class="required">*</span></span></td>
+                       <td class="input-ele"><?php echo $this->renderPriceAttributesSelect('mapping_form[special_price]','special_price','special_price','required-entry chzn-select')?></td>
+                       <td></td>
+                   </tr>
+                   <tr>
+                       <td class="label firstcol"><span><?php echo $this->__('Amazon Price')?></span></td>
+                       <td class="input-ele"><?php echo $this->renderPriceAttributesSelect('mapping_form[amazon_price]','amazon_price','amazon_price','chzn-select')?></td>
+                       <td></td>
+                   </tr>
+                   <tr>
+                       <td class="label firstcol"><span><?php echo $this->__('Ebay Price')?></span></td>
+                       <td class="input-ele"><?php echo $this->renderPriceAttributesSelect('mapping_form[ebay_price]','ebay_price','ebay_price','chzn-select')?></td>
+                       <td></td>
+                   </tr>
                 <tr>
                     <td class="label firstcol"><span><?php echo $this->__('Cost')?></span></td>
-                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[cost]','cost','0','chzn-select')?></td>
+                    <td class="input-ele"><?php echo $this->renderAttributesSelect('mapping_form[cost]','cost','cost','chzn-select')?></td>
                     <td></td>                   
                 </tr>
                 <tr>

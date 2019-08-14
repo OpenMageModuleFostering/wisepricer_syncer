@@ -175,7 +175,7 @@ class Wisepricer_Syncer_Block_Adminhtml_Mapping extends Mage_Adminhtml_Block_Wid
       $websites = $switcher->getWebsites();
       
       $options=array();
-      $options[]=array('label'=>'All','value'=>0);
+      $options[]=array('label'=>'All','value'=>770);
       foreach($websites as $website){          
         foreach($website->getGroups() as $group){   
 
@@ -235,7 +235,7 @@ class Wisepricer_Syncer_Block_Adminhtml_Mapping extends Mage_Adminhtml_Block_Wid
     public function getImportOutStockSet(){
         $model   = Mage::getModel('wisepricer_syncer/config');
         $lisenceData=$model->load(1);
-        if($lisenceData->getImport_outofstock()!='0'){
+        if($lisenceData->getImport_outofstock()=='0'){
            return 'checked';
         }else{
             return '';
